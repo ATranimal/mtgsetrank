@@ -1,628 +1,77 @@
 import React, { useState, useEffect, useCallback, useReducer, useMemo } from 'react';
-import pako from 'pako';
 import './App.css';
+import { DEFAULT_SET_CODE } from './constants/sets';
+import { getCardColors, getCardKey } from './utils/cardUtils';
+import { useRankings } from './hooks/useRankings';
+import { useCardData } from './hooks/useCardData';
 
-const SET_CODE = 'ecl';
-const STORAGE_KEY = `rankings-${SET_CODE}`;
+import Card from './components/Card';
+import GalleryView from './components/GalleryView';
+import FilterControls from './components/FilterControls';
+import SortControls from './components/SortControls';
+import ShareControls from './components/ShareControls';
+import HelpPanel from './components/HelpPanel';
+import SetSelector from './components/SetSelector';
 
 const initialState = {
   filters: {
     colors: [],
     type: '',
     cmc: '',
+    rarity: '',
     showUnrankedOnly: false,
+    searchTerm: '',
   },
   sortBy: 'name',
 };
 
-
-
 function stateReducer(state, action) {
   switch (action.type) {
-    case 'SET_FILTER':
-      action.onFilterChange();
+    case 'SET_FILTER': {
+      if (action.onFilterChange) action.onFilterChange();
       const newFilters = { ...state.filters, [action.payload.filterName]: action.payload.value };
-      if (action.payload.filterName !== 'showUnrankedOnly') {
+      if (action.payload.filterName !== 'showUnrankedOnly' && action.payload.filterName !== 'searchTerm') {
         newFilters.showUnrankedOnly = false;
       }
       return {
         ...state,
         filters: newFilters,
       };
+    }
     case 'SET_SORT':
-      action.onSortChange();
+      if (action.onSortChange) action.onSortChange();
       return { ...state, sortBy: action.payload };
     default:
       return state;
   }
 }
 
-const getCardColors = (card) => {
-  return card.color_identity || [];
-};
-
-// Helper function to get card key
-const getCardKey = (card) => `${card.set}-${card.collector_number}`;
-
-const GalleryCard = ({ card, onClick }) => {
-  const face1ImageUrl = card.localImagePaths?.[0]
-    ? `/sets/${SET_CODE}/${card.localImagePaths[0]}`
-    : card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal;
-
-  return (
-    <div
-      onClick={onClick}
-      className={`flex flex-col items-center p-1 rounded-lg border-2 cursor-pointer transition-transform hover:scale-105 hover:shadow-lg hover:shadow-black/50`}
-    >
-      <img src={face1ImageUrl} alt={card.name} loading="lazy" className="w-full h-auto rounded-md" />
-    </div>
-  );
-};
-
-const GalleryView = ({ groupedCards, onCardClick }) => {
-  return (
-    <div className="w-full flex flex-col gap-6">
-      {groupedCards.map(({ tier, cards }) => (
-        <div key={tier} className={`p-4 rounded-lg border-2`}>
-          <h2 className={`text-3xl font-bold mb-4 p-2 rounded-md inline-block border-2`}>{tier} ({cards.length})</h2>
-          {/* This line is updated for a much denser grid */}
-          <div className="w-full grid grid-cols-5 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-5 gap-1">
-            {cards.map((card) => (
-              <GalleryCard
-                key={card.id}
-                card={card}
-                onClick={() => onCardClick(card.id)}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const Card = ({ card, currentRank, onRank }) => {
-  const [selectedGrade, setSelectedGrade] = useState(null);
-  const [selectedModifier, setSelectedModifier] = useState(null);
-  const [isFlipped, setIsFlipped] = useState(false);
-
-  const isTransformCard = card.layout === 'transform';
-
-  useEffect(() => {
-    setSelectedGrade(null);
-    setSelectedModifier(null);
-    setIsFlipped(false);
-  }, [getCardKey(card)]);
-
-  const handleRank = useCallback((grade, modifier) => {
-    const finalRank = `${grade}${modifier || ''}`;
-    onRank(getCardKey(card), finalRank);
-  }, [card, onRank]);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const key = e.key.toUpperCase();
-      if (['A', 'B', 'C', 'D', 'F'].includes(key)) {
-        setSelectedGrade(key);
-        handleRank(key, selectedModifier);
-      } else if (key === '+' || key === '=') {
-        const modifierToset = selectedModifier == "+" ? null :'+';
-        setSelectedModifier(modifierToset);
-        if (selectedGrade) handleRank(selectedGrade, modifierToset);
-      } else if (key === '-') {
-        const modifierToset = selectedModifier == "-" ? null : "-";
-        setSelectedModifier(modifierToset);
-        if (selectedGrade) handleRank(selectedGrade, modifierToset);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedGrade, selectedModifier, handleRank]);
-
-  const handleFlip = () => {
-    if (isTransformCard) {
-      setIsFlipped(prev => !prev);
-    }
-  };
-
-  const face1ImageUrl = card.localImagePaths?.[0]
-    ? `/sets/${SET_CODE}/${card.localImagePaths[0]}`
-    : card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal;
-
-  const face2ImageUrl = isTransformCard
-    ? (card.localImagePaths?.[1]
-      ? `/sets/${SET_CODE}/${card.localImagePaths[1]}`
-      : card.card_faces?.[1]?.image_uris?.normal)
-    : null;
-
-  return (
-    <div className={`w-full max-w-xs mx-auto border rounded-lg p-4 shadow-lg flex flex-col bg-gray-800 border-gray-700`}>
-      <div
-        className={`mb-4 card-container ${isTransformCard ? 'cursor-pointer' : ''}`}
-        onClick={handleFlip}
-      >
-        <div className={`card-flipper ${isFlipped ? 'is-flipped' : ''}`}>
-          <div className="card-face card-front">
-            {face1ImageUrl ? (
-              <img src={face1ImageUrl} alt={card.name} loading="lazy" className="w-64 h-auto rounded-lg mx-auto" />
-            ) : (
-              <div className="flex items-center justify-center w-full min-h-[300px] bg-gray-700 rounded-lg text-center text-gray-300 p-2">
-                {card.name} (No Image)
-              </div>
-            )}
-          </div>
-          {isTransformCard && (
-            <div className="card-face card-back">
-              {face2ImageUrl ? (
-                <img src={face2ImageUrl} alt={card.card_faces[1].name} loading="lazy" className="w-64 h-auto rounded-lg mx-auto" />
-              ) : (
-                <div className="flex items-center justify-center w-full min-h-[300px] bg-gray-700 rounded-lg text-center text-gray-300 p-2">
-                  {card.card_faces[1].name} (No Image)
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {currentRank && (
-        <div className="text-center mb-2 text-lg font-bold text-yellow-400">
-          Current Rank: {currentRank}
-        </div>
-      )}
-
-      <div className="space-y-3 mt-auto">
-        <div className="flex justify-around">
-          {['A', 'B', 'C', 'D', 'F'].map(grade => (
-            <button
-              key={grade}
-              onClick={(e) => { e.stopPropagation(); setSelectedGrade(grade); handleRank(grade, selectedModifier); }}
-              className={`w-10 h-10 text-md font-bold rounded-full transition-colors shadow-md ${selectedGrade === grade ? 'bg-blue-600 text-white ring-4 ring-blue-400' : 'bg-gray-600 hover:bg-gray-500'}`}
-            >
-              {grade}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-center space-x-4 mt-2">
-          {['+', '-'].map(mod => (
-            <button
-              key={mod}
-              onClick={(e) => { e.stopPropagation(); selectedModifier == mod ? setSelectedModifier(null) : setSelectedModifier(mod); if (selectedGrade) handleRank(selectedGrade, mod); }}
-              className={`w-9 h-9 text-md font-bold rounded-full transition-colors shadow-md ${selectedModifier === mod ? 'bg-green-600 text-white ring-4 ring-green-400' : 'bg-gray-600 hover:bg-gray-500'}`}
-            >
-              {mod}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const FilterControls = ({ dispatch, onFilterChange, filters }) => {
-  const handleColorChange = (color) => {
-    dispatch({
-      type: 'SET_FILTER',
-      payload: { filterName: 'colors', value: color },
-      onFilterChange: onFilterChange
-    });
-  };
-
-  const handleUnrankedFilter = () => {
-    dispatch({
-      type: 'SET_FILTER',
-      payload: { filterName: 'showUnrankedOnly', value: !filters.showUnrankedOnly },
-      onFilterChange: onFilterChange
-    });
-  };
-
-  const handleRarityFilter = (rarity) => {
-    dispatch({
-      type: 'SET_FILTER',
-      payload: { filterName: 'rarity', value: rarity },
-      onFilterChange: onFilterChange
-    });
-  }
-
-  return (
-    <div className="p-4 bg-gray-800 rounded-lg flex flex-wrap gap-4 items-center justify-center">
-      <div className="flex gap-2 flex-wrap justify-center">
-        {['W', 'U', 'B', 'R', 'G'].map(color => (
-          <button key={color} onClick={() => handleColorChange(color)} className={`w-8 h-8 rounded-full text-white font-bold ${filters.colors === color ? 'ring-2 ring-white' : ''} bg-gray-700 hover:bg-gray-600`}>{color}</button>
-        ))}
-        <button onClick={() => handleColorChange('M')} className={`px-3 py-1 rounded ${filters.colors === 'M' ? 'ring-2 ring-white' : ''} bg-gray-700 hover:bg-gray-600`}>Multi</button>
-        <button onClick={() => handleColorChange('C')} className={`px-3 py-1 rounded ${filters.colors === 'C' ? 'ring-2 ring-white' : ''} bg-gray-700 hover:bg-gray-600`}>Colorless</button>
-        <button onClick={() => handleColorChange([])} className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">All</button>
-      </div>
-      <button
-        onClick={handleUnrankedFilter}
-        className={`px-3 py-1 rounded transition-colors ${filters.showUnrankedOnly ? 'bg-yellow-500 text-black' : 'bg-gray-700 hover:bg-gray-600'}`}
-      >
-        Unranked Only
-      </button>
-      <select onChange={(e) => dispatch({ type: 'SET_FILTER', payload: { filterName: 'type', value: e.target.value }, onFilterChange })} className="bg-gray-700 p-2 rounded text-white">
-        <option value="">All Types</option>
-        <option value="Creature">Creature</option>
-        <option value="Instant">Instant</option>
-        <option value="Sorcery">Sorcery</option>
-        <option value="Enchantment">Enchantment</option>
-        <option value="Artifact">Artifact</option>
-        <option value="Land">Land</option>
-      </select>
-      <select onChange ={(e) => handleRarityFilter(e.target.value)} className="bg-gray-700 p-2 rounded text-white">
-        <option value="">All Rarities</option>
-        <option value="common">Common</option>
-        <option value="uncommon">Uncommon</option>
-        <option value="rare">Rare</option>
-        <option value="mythic">Mythic</option>
-      </select>
-      <input
-        type="number"
-        placeholder="Max CMC"
-        onChange={(e) => dispatch({ type: 'SET_FILTER', payload: { filterName: 'cmc', value: e.target.value }, onFilterChange })}
-        className="bg-gray-700 p-2 rounded w-24 text-white"
-      />
-    </div>
-  );
-};
-
-const SortControls = ({ dispatch, onSortChange }) => (
-  <div className="p-4 bg-gray-800 rounded-lg flex items-center">
-    <label className="mr-2">Sort by:</label>
-    <select onChange={(e) => dispatch({ type: 'SET_SORT', payload: e.target.value, onSortChange })} className="bg-gray-700 p-2 rounded text-white">
-      <option value="name">Name</option>
-      <option value="rarity">Rarity</option>
-      <option value="rank">My Rank</option>
-    </select>
-  </div>
-);
-
-const ShareControls = ({ rankings, allCards }) => {
-  const [shareUrl, setShareUrl] = useState('');
-  
-  // Helper function to compress data
-  const compressData = (data) => {
-    try {
-      const jsonString = JSON.stringify(data);
-      const compressed = pako.deflate(jsonString);
-      // Convert to base64 URL-safe string
-      const base64 = btoa(String.fromCharCode(...compressed))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-      return base64;
-    } catch (error) {
-      console.error('Compression failed:', error);
-      return null;
-    }
-  };
-
-  // Helper function to decompress data
-  const decompressData = (compressed) => {
-    try {
-      // Convert URL-safe base64 back to regular base64
-      const base64 = compressed
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
-      
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      
-      const decompressed = pako.inflate(bytes, { to: 'string' });
-      return JSON.parse(decompressed);
-    } catch (error) {
-      console.error('Decompression failed:', error);
-      return null;
-    }
-  };
-
-  const createShareableLink = () => {
-    const unrankedCount = allCards.filter(card => !rankings[getCardKey(card)]).length;
-    if (unrankedCount > 0) {
-      const proceed = window.confirm(
-        `You have ${unrankedCount} unranked card(s). Are you sure you want to create a shareable link?`
-      );
-      if (!proceed) {
-        return;
-      }
-    }
-
-    const compressed = compressData(rankings);
-    if (compressed) {
-      const url = `${window.location.origin}${window.location.pathname}?import=${compressed}`;
-      setShareUrl(url);
-      navigator.clipboard.writeText(url);
-      alert(`Shareable link copied to clipboard!\nLink length: ${url.length} characters`);
-    } else {
-      alert('Failed to create shareable link!');
-    }
-  };
-
-  const exportRankings = () => {
-    const unrankedCount = allCards.filter(card => !rankings[getCardKey(card)]).length;
-    if (unrankedCount > 0) {
-      const proceed = window.confirm(
-        `You have ${unrankedCount} unranked card(s). Are you sure you want to export?`
-      );
-      if (!proceed) {
-        return;
-      }
-    }
-
-    const compressed = compressData(rankings);
-    if (compressed) {
-      navigator.clipboard.writeText(compressed);
-      alert('Compressed rankings copied to clipboard!');
-    } else {
-      alert('Failed to export rankings!');
-    }
-  };
-
-  const importRankings = () => {
-    const input = prompt('Paste your ranking string or shareable link:');
-    if (input) {
-      try {
-        // Check if input is a URL and extract the import parameter
-        let rankingString = input;
-        if (input.startsWith('http://') || input.startsWith('https://')) {
-          const url = new URL(input);
-          const importParam = url.searchParams.get('import');
-          if (!importParam) {
-            alert('No ranking data found in the URL!');
-            return;
-          }
-          rankingString = importParam;
-        }
-
-        // Try decompressing first (new format)
-        let parsedRankings = decompressData(rankingString);
-        
-        // Fall back to old base64 format if decompression fails
-        if (!parsedRankings) {
-          try {
-            const decoded = atob(rankingString);
-            parsedRankings = JSON.parse(decoded);
-          } catch {
-            alert('Invalid ranking string!');
-            return;
-          }
-        }
-        
-        if (parsedRankings) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedRankings));
-          window.location.reload();
-        }
-      } catch (error) {
-        console.error('Import failed:', error);
-        alert('Invalid ranking data!');
-      }
-    }
-  };
-  
-  return (
-    <div className="p-4 bg-gray-800 rounded-lg flex gap-4 flex-wrap">
-      <button onClick={createShareableLink} className="bg-purple-600 px-4 py-2 rounded hover:bg-purple-500">
-        📤 Share Link
-      </button>
-      <button onClick={exportRankings} className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500">Export</button>
-      <button onClick={importRankings} className="bg-green-600 px-4 py-2 rounded hover:bg-green-500">Import</button>
-    </div>
-  );
-};
-
-const HelpPanel = () => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="fixed bottom-4 right-4 z-50">
-      {/* Help Button */}
-      <div className="flex justify-end">
-        <div 
-          onClick={() => setIsOpen(!isOpen)}
-          className="bg-blue-600 hover:bg-blue-500 rounded-full w-12 h-12 flex items-center justify-center cursor-pointer shadow-lg"
-        >
-          <span className="text-white text-2xl font-bold">?</span>
-        </div>
-      </div>
-      
-      {/* Info Panel */}
-      {isOpen && (
-        <div className="absolute bottom-14 right-0 bg-gray-800 border-2 border-gray-700 rounded-lg p-4 shadow-xl min-w-[280px]">
-          <h3 className="text-lg font-bold mb-3 text-blue-400">Hotkeys</h3>
-          <div className="space-y-2 text-sm mb-4">
-            <div className="flex justify-between">
-              <span className="text-gray-400">Navigate:</span>
-              <span className="font-mono bg-gray-700 px-2 py-0.5 rounded">← →</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Grade:</span>
-              <span className="font-mono bg-gray-700 px-2 py-0.5 rounded">A B C D F</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Modifier:</span>
-              <span className="font-mono bg-gray-700 px-2 py-0.5 rounded">+ -</span>
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-700 pt-3 mt-3">
-            <h4 className="text-sm font-semibold mb-2 text-gray-300">Created by:</h4>
-            <div className="space-y-1 text-sm">
-              <a 
-                href="https://github.com/ATranimal" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="block text-blue-400 hover:text-blue-300 hover:underline"
-              >
-                github.com/ATranimal
-              </a>
-              <a 
-                href="https://github.com/andrew-jung" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="block text-blue-400 hover:text-blue-300 hover:underline"
-              >
-                github.com/andrew-jung
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 export default function App() {
-  const [allCards, setAllCards] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [setCode, setSetCode] = useState(DEFAULT_SET_CODE);
+  const { allCards, isLoading, error } = useCardData(setCode);
+  const { rankings, handleRank } = useRankings(setCode, allCards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [viewMode, setViewMode] = useState("ranker");
 
-  const [rankings, setRankings] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch (e) {
-      console.error("Failed to load rankings from localStorage", e);
-      return {};
-    }
-  });
-
   const [state, dispatch] = useReducer(stateReducer, initialState);
 
-  // Migration effect: Convert old ID-based rankings to new set-collector_number format
   useEffect(() => {
-    if (allCards.length === 0) return;
-    
-    const currentRankings = rankings;
-    let needsMigration = false;
-    const migratedRankings = {};
-    
-    // Check if any ranking uses old ID format (UUIDs with dashes)
-    const hasOldFormat = Object.keys(currentRankings).some(key => key.includes('-') && key.length > 20);
-    
-    if (hasOldFormat) {
-      console.log('Detected old ranking format, migrating...');
-      needsMigration = true;
-      
-      // Create a map from old ID to new key
-      allCards.forEach(card => {
-        const oldId = card.id;
-        const newKey = getCardKey(card);
-        
-        if (currentRankings[oldId]) {
-          migratedRankings[newKey] = currentRankings[oldId];
-        }
-      });
-      
-      // Keep any rankings that are already in new format
-      Object.keys(currentRankings).forEach(key => {
-        if (!key.includes('-') || key.length <= 20) {
-          migratedRankings[key] = currentRankings[key];
-        }
-      });
-      
-      console.log(`Migrated ${Object.keys(migratedRankings).length} rankings to new format`);
-      setRankings(migratedRankings);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedRankings));
+    if (!isLoading && allCards.length > 0) {
+      const unrankedCount = allCards.filter((card) => !rankings[getCardKey(card)]).length;
+      if (unrankedCount === 0) setViewMode("gallery");
     }
-  }, [allCards, rankings]);
-
-  useEffect(() => {
-    async function loadCards() {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/sets/${SET_CODE}/${SET_CODE}.json`);
-        if (!response.ok) throw new Error(`Could not find ${SET_CODE}.json`);
-        const data = await response.json();
-        setAllCards(data);
-
-        const unrankedCount = data.filter((card) => !rankings[card.id]).length;
-        if (unrankedCount === 0) setViewMode("gallery");
-      } catch (err) {
-        console.error(err);
-        setError(
-          `Failed to load card data. Make sure ${SET_CODE}.json is in /public/sets/${SET_CODE}/`
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadCards();
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rankings));
-    } catch (e) {
-      console.error("Failed to save rankings to localStorage", e);
-    }
-  }, [rankings]);
-
-  // get the query parameter, check for 'import', and the run the importer
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const importData = urlParams.get("import");
-
-    if (importData) {
-      try {
-        // Helper function to decompress data
-        const decompressData = (compressed) => {
-          try {
-            // Convert URL-safe base64 back to regular base64
-            const base64 = compressed
-              .replace(/-/g, '+')
-              .replace(/_/g, '/');
-            
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            const decompressed = pako.inflate(bytes, { to: 'string' });
-            return JSON.parse(decompressed);
-          } catch (error) {
-            console.error('Decompression failed:', error);
-            return null;
-          }
-        };
-
-        // Try decompressing first (new format)
-        let parsedRankings = decompressData(importData);
-        
-        // Fall back to old base64 format if decompression fails
-        if (!parsedRankings) {
-          const decoded = atob(importData);
-          parsedRankings = JSON.parse(decoded);
-        }
-        
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedRankings));
-        setRankings(parsedRankings);
-        // Clear the query parameter from the URL
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
-        alert("Rankings imported successfully!");
-      } catch (error) {
-        console.error("Failed to import rankings:", error);
-        alert("Invalid import data in URL!");
-      }
-    }
-  }, []);
-
+  }, [isLoading, allCards.length]); 
   const filteredAndSortedCards = useMemo(() => {
     let filtered = allCards.filter((card) => {
-      const { type, cmc, showUnrankedOnly } = state.filters;
+      const { type, cmc, rarity, showUnrankedOnly, searchTerm } = state.filters;
       const selectedColors = state.filters.colors;
       const cardColors = getCardColors(card);
 
       if (showUnrankedOnly && rankings[getCardKey(card)]) {
+        return false;
+      }
+
+      if (searchTerm && !card.name.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
       }
 
@@ -640,27 +89,17 @@ export default function App() {
 
       if (type && !card.type_line.includes(type)) return false;
       if (cmc && card.cmc > parseInt(cmc)) return false;
+      if (rarity && card.rarity !== rarity) return false;
 
-      if (state.filters.rarity) {
-        if (card.rarity !== state.filters.rarity) return false;
-      }
       return true;
     });
 
     const rarityOrder = { common: 4, uncommon: 3, rare: 2, mythic: 1 };
     const gradeOrder = {
-      "A+": 1,
-      A: 2,
-      "A-": 3,
-      "B+": 4,
-      B: 5,
-      "B-": 6,
-      "C+": 7,
-      C: 8,
-      "C-": 9,
-      "D+": 10,
-      D: 11,
-      "D-": 12,
+      "A+": 1, A: 2, "A-": 3,
+      "B+": 4, B: 5, "B-": 6,
+      "C+": 7, C: 8, "C-": 9,
+      "D+": 10, D: 11, "D-": 12,
       F: 13,
     };
 
@@ -678,43 +117,14 @@ export default function App() {
   }, [allCards, state.filters, state.sortBy, rankings]);
 
   const groupedCardsForGallery = useMemo(() => {
-    const tierOrder = [
-      "A+",
-      "A",
-      "A-",
-      "B+",
-      "B",
-      "B-",
-      "C+",
-      "C",
-      "C-",
-      "D+",
-      "D",
-      "D-",
-      "F",
-      "Unranked",
-    ];
-
+    const tierOrder = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F", "Unranked"];
     const groups = {};
     filteredAndSortedCards.forEach((card) => {
       const rank = rankings[getCardKey(card)] || "Unranked";
-      if (!groups[rank]) {
-        groups[rank] = [];
-      }
+      if (!groups[rank]) groups[rank] = [];
       groups[rank].push(card);
     });
-
-    return tierOrder
-      .map((tier) => {
-        if (groups[tier] && groups[tier].length > 0) {
-          return {
-            tier,
-            cards: groups[tier],
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
+    return tierOrder.map((tier) => (groups[tier]?.length > 0 ? { tier, cards: groups[tier] } : null)).filter(Boolean);
   }, [filteredAndSortedCards, rankings]);
 
   const handleNext = useCallback(() => {
@@ -722,19 +132,8 @@ export default function App() {
   }, [filteredAndSortedCards.length]);
 
   const handlePrev = useCallback(() => {
-    setCurrentIndex(
-      (prev) =>
-        (prev - 1 + filteredAndSortedCards.length) %
-        filteredAndSortedCards.length
-    );
+    setCurrentIndex((prev) => (prev - 1 + filteredAndSortedCards.length) % filteredAndSortedCards.length);
   }, [filteredAndSortedCards.length]);
-
-  const handleRank = useCallback((cardId, rank) => {
-    setRankings((prevRankings) => ({
-      ...prevRankings,
-      [cardId]: rank,
-    }));
-  }, []);
 
   const handleGalleryCardClick = (cardId) => {
     const index = filteredAndSortedCards.findIndex((c) => c.id === cardId);
@@ -747,6 +146,9 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (viewMode !== "ranker") return;
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+        return;
+      }
       if (e.key === "ArrowRight") handleNext();
       if (e.key === "ArrowLeft") handlePrev();
     };
@@ -754,60 +156,60 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleNext, handlePrev, viewMode]);
 
-  if (error)
-    return (
-      <div className="min-h-screen bg-gray-900 text-white p-6">
-        <h2 className="text-2xl">Error</h2>
-        <p>{error}</p>
-      </div>
-    );
-  if (isLoading)
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex justify-center items-center">
-        <p>Loading cards...</p>
-      </div>
-    );
+  if (error) return (
+    <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center justify-center gap-4">
+      <h2 className="text-3xl font-bold text-red-500">Error</h2>
+      <p className="text-xl">{error}</p>
+      <button onClick={() => window.location.reload()} className="bg-blue-600 px-6 py-2 rounded-lg font-bold">Retry</button>
+    </div>
+  );
+  
+  if (isLoading) return (
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col justify-center items-center gap-4">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+      <p className="text-xl font-medium">Loading {setCode.toUpperCase()} cards...</p>
+    </div>
+  );
 
   const currentCard = filteredAndSortedCards[currentIndex];
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen p-4 flex flex-col items-center font-sans">
-      <h1 className="text-4xl font-bold text-center mb-4 tracking-wide">
-        MTG Card Ranker: {SET_CODE.toUpperCase()}
-      </h1>
-      <div className="sticky top-0 z-10 bg-gray-900 py-2 w-full flex justify-center">
-        <div className="container mx-auto flex flex-col items-center gap-4">
-          <div className="flex flex-wrap justify-center items-start gap-4 flex-col">
-            <div className="flex gap-2">
-              <div className="p-4 bg-gray-800 rounded-lg flex gap-2">
-                <button
-                  onClick={() => setViewMode("ranker")}
-                  className={`px-4 py-2 rounded ${
-                    viewMode === "ranker"
-                      ? "bg-blue-600"
-                      : "bg-gray-600 hover:bg-gray-500"
-                  }`}
-                >
-                  Ranker
-                </button>
-                <button
-                  onClick={() => setViewMode("gallery")}
-                  className={`px-4 py-2 rounded ${
-                    viewMode === "gallery"
-                      ? "bg-blue-600"
-                      : "bg-gray-600 hover:bg-gray-500"
-                  }`}
-                >
-                  Gallery
-                </button>
-              </div>
-              <SortControls
-                dispatch={dispatch}
-                onSortChange={() => setCurrentIndex(0)}
-              />
-              <ShareControls rankings={rankings} allCards={allCards} />
+    <div className="bg-gray-900 text-white min-h-screen p-4 flex flex-col items-center font-sans selection:bg-blue-500/30">
+      <header className="w-full max-w-7xl flex flex-col items-center mb-8">
+        <h1 className="text-4xl md:text-5xl font-black text-center mb-2 tracking-tighter bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+          MTG RANKER
+        </h1>
+        <div className="flex items-center gap-2 text-gray-400 font-mono text-sm uppercase tracking-wider">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          SET: {setCode.toUpperCase()}
+        </div>
+      </header>
+
+      <div className="sticky top-0 z-20 bg-gray-900/95 backdrop-blur-sm py-4 w-full border-b border-gray-800 mb-8">
+        <div className="container mx-auto flex flex-col items-center gap-6 px-4">
+          <div className="flex flex-wrap justify-center items-center gap-4 w-full max-w-5xl">
+            <div className="bg-gray-800 p-1 rounded-xl flex shadow-inner">
+              <button
+                onClick={() => setViewMode("ranker")}
+                className={`px-6 py-2 rounded-lg font-bold transition-all ${viewMode === "ranker" ? "bg-blue-600 shadow-lg" : "text-gray-400 hover:text-white"}`}
+              >
+                Ranker
+              </button>
+              <button
+                onClick={() => setViewMode("gallery")}
+                className={`px-6 py-2 rounded-lg font-bold transition-all ${viewMode === "gallery" ? "bg-blue-600 shadow-lg" : "text-gray-400 hover:text-white"}`}
+              >
+                Gallery
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap justify-center gap-3">
+              <SetSelector currentSet={setCode} onSetChange={(newSet) => { setSetCode(newSet); setCurrentIndex(0); }} />
+              <SortControls dispatch={dispatch} onSortChange={() => setCurrentIndex(0)} />
+              <ShareControls rankings={rankings} allCards={allCards} setCode={setCode} />
             </div>
           </div>
+          
           <FilterControls
             dispatch={dispatch}
             onFilterChange={() => setCurrentIndex(0)}
@@ -816,14 +218,15 @@ export default function App() {
         </div>
       </div>
 
-      <main className="flex items-center justify-center w-full max-w-7xl mx-auto mt-4">
+      <main className="w-full max-w-7xl mx-auto flex-grow flex flex-col items-center">
         {filteredAndSortedCards.length > 0 ? (
           <>
             {viewMode === "ranker" && (
-              <div className="flex items-center justify-center gap-4 w-full">
+              <div className="flex items-center justify-center gap-2 md:gap-8 w-full">
                 <button
                   onClick={handlePrev}
-                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 text-2xl"
+                  className="hidden md:flex w-12 h-12 items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 text-2xl transition-all border border-gray-700 shadow-xl"
+                  title="Previous (Left Arrow)"
                 >
                   ←
                 </button>
@@ -831,10 +234,12 @@ export default function App() {
                   card={currentCard}
                   currentRank={rankings[getCardKey(currentCard)]}
                   onRank={handleRank}
+                  setCode={setCode}
                 />
                 <button
                   onClick={handleNext}
-                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 text-2xl"
+                  className="hidden md:flex w-12 h-12 items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 text-2xl transition-all border border-gray-700 shadow-xl"
+                  title="Next (Right Arrow)"
                 >
                   →
                 </button>
@@ -844,21 +249,34 @@ export default function App() {
               <GalleryView
                 groupedCards={groupedCardsForGallery}
                 onCardClick={handleGalleryCardClick}
+                setCode={setCode}
               />
             )}
           </>
         ) : (
-          <p className="text-center">No cards match the current filters.</p>
+          <div className="flex flex-col items-center justify-center p-20 bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-700">
+            <p className="text-2xl font-bold text-gray-400">No cards match the current filters.</p>
+            <button 
+              onClick={() => dispatch({ type: 'SET_FILTER', payload: { filterName: 'searchTerm', value: '' } })}
+              className="mt-4 text-blue-400 hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
         )}
       </main>
 
-      <footer className="text-center mt-4 text-gray-400">
-        <p>Showing {filteredAndSortedCards.length} cards</p>
-        {viewMode === "ranker" && filteredAndSortedCards.length > 0 && (
-          <p>
-            Card {currentIndex + 1} of {filteredAndSortedCards.length}
-          </p>
-        )}
+      <footer className="w-full max-w-7xl mt-12 py-8 border-t border-gray-800 flex flex-col items-center gap-2 text-gray-500">
+        <div className="flex items-center gap-4 text-sm font-medium">
+          <span>{filteredAndSortedCards.length} Cards Found</span>
+          {viewMode === "ranker" && filteredAndSortedCards.length > 0 && (
+            <>
+              <span className="w-1 h-1 rounded-full bg-gray-700"></span>
+              <span className="text-blue-400">Card {currentIndex + 1} of {filteredAndSortedCards.length}</span>
+            </>
+          )}
+        </div>
+        <p className="text-xs uppercase tracking-widest">MTG Limited Learning Tool</p>
       </footer>
       
       <HelpPanel />
