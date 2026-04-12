@@ -185,7 +185,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="sticky top-0 z-20 bg-gray-900/95 backdrop-blur-sm py-4 w-full border-b border-gray-800 mb-8">
+      <div className="py-4 w-full border-b border-gray-800 mb-8">
         <div className="container mx-auto flex flex-col items-center gap-6 px-4">
           <div className="flex flex-wrap justify-center items-center gap-4 w-full max-w-5xl">
             <div className="bg-gray-800 p-1 rounded-xl flex shadow-inner">
@@ -225,7 +225,7 @@ export default function App() {
               <div className="flex items-center justify-center gap-2 md:gap-8 w-full">
                 <button
                   onClick={handlePrev}
-                  className="hidden md:flex w-12 h-12 items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 text-2xl transition-all border border-gray-700 shadow-xl"
+                  className="flex w-12 h-12 items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 text-2xl transition-all border border-gray-700 shadow-xl"
                   title="Previous (Left Arrow)"
                 >
                   ←
@@ -238,7 +238,7 @@ export default function App() {
                 />
                 <button
                   onClick={handleNext}
-                  className="hidden md:flex w-12 h-12 items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 text-2xl transition-all border border-gray-700 shadow-xl"
+                  className="flex w-12 h-12 items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 text-2xl transition-all border border-gray-700 shadow-xl"
                   title="Next (Right Arrow)"
                 >
                   →

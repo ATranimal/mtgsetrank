@@ -4,9 +4,7 @@
 /* Override mana-font @font-face to add woff2 support (fixes Firefox) */
 @font-face {
   font-family: "Mana";
-  src: url("../node_modules/mana-font/fonts/mana.woff2") format("woff2"),
-       url("../node_modules/mana-font/fonts/mana.woff") format("woff"),
-       url("../node_modules/mana-font/fonts/mana.ttf") format("truetype");
+  src: url("/fonts/mana.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
 }
