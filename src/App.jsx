@@ -7,11 +7,13 @@ import { useCardData } from './hooks/useCardData';
 
 import Card from './components/Card';
 import GalleryView from './components/GalleryView';
+import TopCommonsView from './components/TopCommonsView';
 import FilterControls from './components/FilterControls';
 import SortControls from './components/SortControls';
 import ShareControls from './components/ShareControls';
 import HelpPanel from './components/HelpPanel';
 import SetSelector from './components/SetSelector';
+import { useTopCommons } from './hooks/useTopCommons';
 
 const initialState = {
   filters: {
@@ -52,6 +54,13 @@ export default function App() {
   const { rankings, handleRank } = useRankings(setCode, allCards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [viewMode, setViewMode] = useState("ranker");
+
+  const {
+    resolvedTopCommons,
+    pendingTiebreakers,
+    warnings: topCommonsWarnings,
+    resolveTiebreaker,
+  } = useTopCommons(setCode, allCards, rankings);
 
   const [state, dispatch] = useReducer(stateReducer, initialState);
 
@@ -201,6 +210,12 @@ export default function App() {
               >
                 Gallery
               </button>
+              <button
+                onClick={() => setViewMode("topcommons")}
+                className={`px-6 py-2 rounded-lg font-bold transition-all ${viewMode === "topcommons" ? "bg-blue-600 shadow-lg" : "text-gray-400 hover:text-white"}`}
+              >
+                Top Commons
+              </button>
             </div>
             
             <div className="flex flex-wrap justify-center gap-3">
@@ -250,6 +265,17 @@ export default function App() {
                 groupedCards={groupedCardsForGallery}
                 onCardClick={handleGalleryCardClick}
                 setCode={setCode}
+              />
+            )}
+            {viewMode === "topcommons" && (
+              <TopCommonsView
+                resolvedTopCommons={resolvedTopCommons}
+                pendingTiebreakers={pendingTiebreakers}
+                warnings={topCommonsWarnings}
+                resolveTiebreaker={resolveTiebreaker}
+                rankings={rankings}
+                setCode={setCode}
+                onCardClick={handleGalleryCardClick}
               />
             )}
           </>
