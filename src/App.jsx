@@ -51,7 +51,7 @@ function stateReducer(state, action) {
 export default function App() {
   const [setCode, setSetCode] = useState(DEFAULT_SET_CODE);
   const { allCards, isLoading, error } = useCardData(setCode);
-  const { rankings, handleRank } = useRankings(setCode, allCards);
+  const { rankings, handleRank, setRankings } = useRankings(setCode, allCards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [viewMode, setViewMode] = useState("ranker");
 
@@ -218,10 +218,10 @@ export default function App() {
               </button>
             </div>
             
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex flex-nowrap justify-center gap-3">
               <SetSelector currentSet={setCode} onSetChange={(newSet) => { setSetCode(newSet); setCurrentIndex(0); }} />
               <SortControls dispatch={dispatch} onSortChange={() => setCurrentIndex(0)} />
-              <ShareControls rankings={rankings} allCards={allCards} setCode={setCode} />
+              <ShareControls rankings={rankings} allCards={allCards} setCode={setCode} setRankings={setRankings} />
             </div>
           </div>
           

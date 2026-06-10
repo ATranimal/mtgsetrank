@@ -34,7 +34,7 @@ const FilterControls = ({ dispatch, onFilterChange, filters }) => {
   };
 
   return (
-    <div className="p-4 bg-gray-800 rounded-lg flex flex-wrap gap-4 items-center justify-center">
+    <div className="px-4 py-3 bg-gray-800 rounded-lg flex gap-3 items-center justify-center">
       {/* Search Input */}
       <div className="flex items-center bg-gray-700 rounded p-1 border border-gray-600 focus-within:ring-2 focus-within:ring-blue-500">
         <input
@@ -42,7 +42,7 @@ const FilterControls = ({ dispatch, onFilterChange, filters }) => {
           placeholder="Search cards..."
           value={filters.searchTerm || ''}
           onChange={handleSearchChange}
-          className="bg-transparent text-white p-1 outline-none w-48"
+          className="bg-transparent text-white p-1 outline-none w-32"
         />
         {filters.searchTerm && (
           <button
@@ -54,7 +54,7 @@ const FilterControls = ({ dispatch, onFilterChange, filters }) => {
         )}
       </div>
 
-      <div className="flex gap-2 flex-wrap justify-center">
+      <div className="flex gap-1">
         {['W', 'U', 'B', 'R', 'G'].map(color => (
           <button 
             key={color} 
@@ -107,11 +107,15 @@ const FilterControls = ({ dispatch, onFilterChange, filters }) => {
       <div className="flex items-center gap-2">
         <span className="text-xs text-gray-400">Max CMC:</span>
         <input
-          type="number"
-          placeholder="Max CMC"
+          type="text"
+          inputMode="numeric"
+          placeholder="Max"
           value={filters.cmc || ''}
-          onChange={(e) => dispatch({ type: 'SET_FILTER', payload: { filterName: 'cmc', value: e.target.value }, onFilterChange })}
-          className="bg-gray-700 p-2 rounded w-16 text-white border border-gray-600 outline-none focus:ring-2 focus:ring-blue-500 text-center"
+          onChange={(e) => {
+            const val = e.target.value.replace(/\D/g, '');
+            dispatch({ type: 'SET_FILTER', payload: { filterName: 'cmc', value: val }, onFilterChange });
+          }}
+          className="bg-gray-700 p-2 rounded w-12 text-white border border-gray-600 outline-none focus:ring-2 focus:ring-blue-500 text-center"
         />
       </div>
     </div>

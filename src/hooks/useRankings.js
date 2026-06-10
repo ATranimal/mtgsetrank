@@ -65,23 +65,30 @@ export const useRankings = (setCode, allCards) => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const importData = urlParams.get("import");
+    const importName = urlParams.get("name");
 
     if (importData) {
       try {
         let parsedRankings = decompressData(importData);
-        
+
         if (!parsedRankings) {
           const decoded = atob(importData);
           parsedRankings = JSON.parse(decoded);
         }
-        
-        setRankings(parsedRankings);
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
-        alert("Rankings imported successfully!");
+
+        if (importName) {
+          const name = decodeURIComponent(importName);
+          const savedKey = `saved-rankings-${setCode}`;
+          const existing = JSON.parse(localStorage.getItem(savedKey) || '{}');
+          existing[name] = parsedRankings;
+          localStorage.setItem(savedKey, JSON.stringify(existing));
+          alert(`Saved rankings for "${name}"!`);
+        } else {
+          setRankings(parsedRankings);
+          alert("Rankings imported successfully!");
+        }
+
+        window.history.replaceState({}, document.title, window.location.pathname);
       } catch (error) {
         console.error("Failed to import rankings:", error);
         alert("Invalid import data in URL!");
