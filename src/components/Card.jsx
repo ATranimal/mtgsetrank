@@ -51,12 +51,12 @@ const Card = ({ card, currentRank, onRank, setCode }) => {
   };
 
   const face1ImageUrl = card.localImagePaths?.[0]
-    ? `/sets/${setCode}/${card.localImagePaths[0]}`
+    ? `/images/sets/${setCode}/${card.localImagePaths[0]}`
     : card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal;
 
   const face2ImageUrl = isTransformCard
     ? (card.localImagePaths?.[1]
-      ? `/sets/${setCode}/${card.localImagePaths[1]}`
+      ? `/images/sets/${setCode}/${card.localImagePaths[1]}`
       : card.card_faces?.[1]?.image_uris?.normal)
     : null;
 

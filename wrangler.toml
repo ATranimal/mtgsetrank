@@ -1,0 +1,6 @@
+name = "mtgsetrank"
+pages_build_output_dir = "dist"
+
+[[r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "mtgsetrank-images"

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:cf": "npm run build && wrangler pages dev dist",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

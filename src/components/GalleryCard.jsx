@@ -2,7 +2,7 @@ import React from 'react';
 
 const GalleryCard = ({ card, onClick, setCode }) => {
   const face1ImageUrl = card.localImagePaths?.[0]
-    ? `/sets/${setCode}/${card.localImagePaths[0]}`
+    ? `/images/sets/${setCode}/${card.localImagePaths[0]}`
     : card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal;
 
   return (
