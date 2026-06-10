@@ -1,5 +1,8 @@
 name = "mtgsetrank"
-pages_build_output_dir = "dist"
+compatibility_date = "2026-06-10"
+
+[assets]
+directory = "./dist"
 
 [[r2_buckets]]
 binding = "IMAGES_BUCKET"
